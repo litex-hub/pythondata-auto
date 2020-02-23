@@ -172,6 +172,7 @@ def get_src(module_data):
     module_data['src_local'] = os.path.abspath(src_dir)
     module_data['git_describe'] = desc
     module_data['git_hash'] = git_hash
+    module_data['version_tuple'] = repr(tuple(vdesc.release))
     module_data['version'] = str(vdesc)
     module_data['git_msg'] = git_msg
 
