@@ -7,6 +7,9 @@ import subprocess
 import sys
 import shutil
 
+from collections import OrderedDict
+from packaging import version
+
 import jinja2
 import github
 
@@ -46,9 +49,6 @@ def github_repo(g, module_data):
             print(e)
             github_repo_create(g, module_data)
 
-    download(module_data)
-    update(module_data)
-
 
 def download(module_data):
     out_path = os.path.join('repos',module_data['repo'])
@@ -56,7 +56,118 @@ def download(module_data):
         subprocess.check_call(
             ["git", "clone", module_data['repo_url'], out_path])
     else:
-        subprocess.check_call(["git", "pull"], pwd=out_path)
+        dotgit = os.path.join(out_path, '.git')
+        assert os.path.exists(dotgit), dotgit
+        #subprocess.check_call(["git", "pull"], cwd=out_path)
+
+
+def parse_tags(d):
+    """
+    >>> r = parse_tags('''\\
+    ... v0.0
+    ... v0.0.0
+    ... v0.0.0-rc1
+    ... ''')
+    >>> for v in r:
+    ...   print(v)
+    (<Version('0.0.0rc1')>, 'v0.0.0-rc1')
+    (<Version('0.0')>, 'v0.0')
+    (<Version('0.0.0')>, 'v0.0.0')
+
+    """
+    tags = []
+    for t in d.splitlines():
+        nt = t.strip()
+        if nt.startswith('v'):
+            nt = t[1:]
+        try:
+            v = version.parse(nt)
+        except version.InvalidVersion:
+            print("Invalid tag version:", t)
+            continue
+        if isinstance(v, version.LegacyVersion):
+            continue
+        tags.append((v, t))
+    tags.sort()
+    return list(tags)
+
+
+def get_hash(ref, env={}):
+    return subprocess.check_output(
+        ['git', 'rev-parse', ref],
+        env=env).decode('utf-8').strip()
+
+
+def get_tags(env):
+    d = subprocess.check_output(
+        ['git', 'tag', '--list'],
+        env=env).decode('utf-8')
+
+    tags = OrderedDict()
+    for v, t in parse_tags(d):
+        tags[t] = (v, get_hash(t, env))
+    return tags
+
+
+def git_describe(ref='HEAD', env={}):
+    d = subprocess.check_output(
+        ['git', 'describe', '--tags', ref],
+        env=env).decode('utf-8').strip()
+
+    o = d
+    if o.startswith('v'):
+        o = o[1:]
+
+    t, c, h = o.rsplit('-', 2)
+
+    return (d, version.parse(t+'.'+c))
+
+
+def get_src(module_data):
+    src_dir = os.path.join("srcs", module_data['repo'])
+    env = {'GIT_DIR': src_dir}
+    if os.path.exists(src_dir):
+        subprocess.check_call(
+            ['git', 'fetch', '--all'],
+            env=env)
+    else:
+        subprocess.check_call(
+            ['git', 'clone', '--bare', '--mirror', module_data['src'], src_dir])
+    subprocess.check_call(
+        ['git', 'fetch', '--tags'],
+        env=env)
+
+
+    tags = get_tags(env)
+    if 'v0.0' not in tags:
+        # Add a default tag
+        p = subprocess.Popen(
+            ['git', 'log', '--reverse', '--pretty=%H %s'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+        for l in p.stdout:
+            l = l.decode('utf-8').strip()
+            if not l:
+                continue
+            break
+        p.stdout.close()
+        first_hash, desc = l.split(" ", 1)
+        cmd = [
+            'git', 'tag', '-a',
+            '-m','Dummy version on first commit so git-describe works',
+            'v0.0', first_hash,
+        ]
+        subprocess.check_call(
+            cmd,
+            env=env)
+        tags = get_tags(env)
+
+    desc, vdesc = git_describe(module_data['branch'], env)
+    module_data['git_describe'] = desc
+    module_data['git_hash'] = get_hash(module_data['branch'], env)
+    module_data['version'] = str(vdesc)
 
 
 def render(module_data, in_file, out_file):
@@ -125,7 +236,8 @@ def repo_path(module_data, path, template_dir=os.path.abspath("templates")):
 def git_add_file(module_data, f):
     repo_dir = os.path.abspath(os.path.join('repos', module_data['repo']))
     cmd = ['git', 'add', os.path.relpath(f, repo_dir)]
-    print("In", repo_dir, repr(" ".join(cmd)))
+    dotgit = os.path.join(repo_dir, '.git')
+    assert os.path.exists(dotgit), dotgit
     subprocess.check_call(cmd, cwd=repo_dir)
 
 
@@ -170,7 +282,7 @@ def update(module_data):
             else:
                 u("Copying", repo_f, path_f)
                 shutil.copy(path_f, repo_f)
-            #git_add_file(module_data, repo_f)
+            git_add_file(module_data, repo_f)
     print('-'*75)
 
 
@@ -197,21 +309,22 @@ def main(name, argv):
             repo=repo_name)
         m['repo_https'] = "https://github.com/litex-hub/{repo}.git".format(
             repo=repo_name)
-        m['py'] = 'litex.{type}.{name}'.format(type=m['type'], name=module)
-        m['dir'] = os.path.join('litex', m['type'], module, m['contents'])
+        m['py'] = 'litex.data.{type}.{name}'.format(type=m['type'], name=module)
+        m['dir'] = os.path.join('litex', 'data', m['type'], module, m['contents'])
+        get_src(m)
         print()
         print(module)
         pprint.pprint(list(m.items()))
-        #github_repo(g, m)
+        download(m)
         update(m)
-        break
-
-
+        #github_repo(g, m)
 
     return 0
 
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    failure_count, test_count = doctest.testmod()
+    if failure_count > 0:
+        sys.exit(-1)
     sys.exit(main(sys.argv[0], sys.argv[1:]))

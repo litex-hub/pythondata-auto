@@ -1,3 +1,8 @@
 import os.path
 __dir__ = os.path.split(os.path.abspath(os.path.realpath(__file__)))[0]
 data_location = os.path.join(__dir__, "{{ contents }}")
+src = "{{ src }}"
+git_hash = "{{ git_hash }}"
+git_describe = "{{ git_describe }}"
+from packaging.version import Version as V
+version = V("{{ version }}")
