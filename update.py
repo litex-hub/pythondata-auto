@@ -112,7 +112,7 @@ def get_tags(env):
 
 def git_describe(ref='HEAD', env={}):
     d = subprocess.check_output(
-        ['git', 'describe', '--tags', ref],
+        ['git', 'describe', '--tags', ref, '--match', 'v*', '--exclude', '*-r*'],
         env=env).decode('utf-8').strip()
 
     o = d
@@ -120,8 +120,9 @@ def git_describe(ref='HEAD', env={}):
         o = o[1:]
 
     t, c, h = o.rsplit('-', 2)
-
-    return (d, version.parse(t+'.'+c))
+    print(repr(version.parse(o)))
+    print(t, c, h, t+'.'+c)
+    return (d, version.parse(t+'-'+c))
 
 
 def get_src(module_data):
@@ -164,6 +165,7 @@ def get_src(module_data):
             env=env)
         tags = get_tags(env)
 
+    print(tags)
     git_hash = get_hash(module_data['branch'], env)
     git_msg = subprocess.check_output(
         ['git', 'log', '-1', git_hash], env=env).decode('utf-8')
@@ -172,6 +174,7 @@ def get_src(module_data):
     module_data['src_local'] = os.path.abspath(src_dir)
     module_data['git_describe'] = desc
     module_data['git_hash'] = git_hash
+    print(desc, repr(vdesc))
     module_data['version_tuple'] = repr(tuple(vdesc.release))
     module_data['version'] = str(vdesc)
     module_data['git_msg'] = git_msg
@@ -334,6 +337,14 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
     subprocess.check_call(cmd, cwd=repo_dir)
 
 
+def push(module_data):
+    print()
+    print("Pushing:", module_data['repo'])
+    print('-'*75)
+    repo_dir = os.path.abspath(os.path.join('repos', module_data['repo']))
+    subprocess.check_call(['git', 'push', '--all'], cwd=repo_dir)
+    print('-'*75)
+
 
 def main(name, argv):
     token = os.environ.get('GITHUB_API_TOKEN', None)
@@ -368,8 +379,12 @@ def main(name, argv):
         pprint.pprint(list(m.items()))
         download(m)
         update(m)
-        break
-        #github_repo(g, m)
+
+    if True:
+        for module in config.sections():
+            m = config[module]
+            github_repo(g, m)
+            push(m)
 
     return 0
 
