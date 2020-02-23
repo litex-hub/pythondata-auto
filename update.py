@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import configparser
+import os
 import pprint
+import shutil
 import subprocess
 import sys
-import shutil
+import tempfile
 
 from collections import OrderedDict
 from packaging import version
@@ -137,7 +138,6 @@ def get_src(module_data):
         ['git', 'fetch', '--tags'],
         env=env)
 
-
     tags = get_tags(env)
     if 'v0.0' not in tags:
         # Add a default tag
@@ -165,6 +165,7 @@ def get_src(module_data):
         tags = get_tags(env)
 
     desc, vdesc = git_describe(module_data['branch'], env)
+    module_data['src_local'] = src_dir
     module_data['git_describe'] = desc
     module_data['git_hash'] = get_hash(module_data['branch'], env)
     module_data['version'] = str(vdesc)
@@ -285,6 +286,39 @@ def update(module_data):
             git_add_file(module_data, repo_f)
     print('-'*75)
 
+    # Commit the changes
+    with tempfile.NamedTemporaryFile() as f:
+        git_msg = subprocess.check_output(
+            ['git', 'log', module_data['git_hash']]).decode('utf-8')
+
+        git_msg_out = []
+        for l in git_msg.split('n'):
+            if l:
+                git_msg_out.append('> '+l)
+            else:
+                git_msg_out.append('>')
+        git_msg_out = "\n".join(git_msg_out)
+        module_data['git_msg'] = git_msg_out
+
+        f.write("""\
+Updating data to {git_describe}
+
+Updated to {version} based on {git_hash} from {src}.
+{git_msg}
+
+Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
+""".format(**module_data))
+        f.flush()
+        f.name
+        subprocess.check_call(['git', 'commit', '-F', f.name])
+
+    # Run the git subtree command
+    subprocess.check_call(
+        ['git', 'subtree', 'pull',
+         '-P', module_data['dir'],
+         module_data['src_local'], module_data['hash']],
+        cwd=repo_dir)
+
 
 
 def main(name, argv):
@@ -294,6 +328,8 @@ def main(name, argv):
     else:
         g = github.Github()
 
+    tool_version, _ = git_describe()
+
     config = configparser.ConfigParser()
     config.read('modules.ini')
     for module in config.sections():
@@ -302,6 +338,7 @@ def main(name, argv):
         repo_name = 'litex-data-{t}-{mod}'.format(
             t=m['type'],
             mod=module)
+        m['tool_version'] = tool_version
         m['name'] = module
         m['repo'] = repo_name
         m['repo_url'] = "{mode}://github.com/litex-hub/{repo}.git".format(
