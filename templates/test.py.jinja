@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+import os
+
+from litex.data.{{ type }} import {{ name }}
+
+print("Found {{ name }} @ version", {{ name }}.version_str, "("+{{ name }}.git_hash+")")
+print("Data is in", {{ name }}.data_location)
+assert os.path.exists({{ name }}.data_location)
+print("It contains:\n -", end=" ")
+print("\n - ".join(os.listdir({{ name }}.data_location)))
