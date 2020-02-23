@@ -59,11 +59,11 @@ pip install --user git+{{ repo_https }}@<hash>
 
 Add to your Python `requirements.txt` file using;
 ```
--e git+https://github.com/litex-hub/{{ repo }}.git
+-e git+{{ repo_https }}
 ```
 
 To use a specific revision of the repository, use the following;
 ```
--e https://github.com/litex-hub/litex-data-vexriscv.git@2927346f4c513a217ac8ad076e494dd1adbf70e1
+-e {{ repo_https }}@<hash>
 ```
 
