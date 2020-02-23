@@ -164,11 +164,16 @@ def get_src(module_data):
             env=env)
         tags = get_tags(env)
 
+    git_hash = get_hash(module_data['branch'], env)
+    git_msg = subprocess.check_output(
+        ['git', 'log', '-1', git_hash], env=env).decode('utf-8')
+
     desc, vdesc = git_describe(module_data['branch'], env)
-    module_data['src_local'] = src_dir
+    module_data['src_local'] = os.path.abspath(src_dir)
     module_data['git_describe'] = desc
-    module_data['git_hash'] = get_hash(module_data['branch'], env)
+    module_data['git_hash'] = git_hash
     module_data['version'] = str(vdesc)
+    module_data['git_msg'] = git_msg
 
 
 def render(module_data, in_file, out_file):
@@ -287,37 +292,45 @@ def update(module_data):
     print('-'*75)
 
     # Commit the changes
-    with tempfile.NamedTemporaryFile() as f:
-        git_msg = subprocess.check_output(
-            ['git', 'log', module_data['git_hash']]).decode('utf-8')
+    tocommit = subprocess.check_output(
+        ['git', 'status', '--porcelain'], cwd=repo_dir).decode('utf-8')
+    if tocommit:
+        print(tocommit)
+        with tempfile.NamedTemporaryFile() as f:
 
-        git_msg_out = []
-        for l in git_msg.split('n'):
-            if l:
-                git_msg_out.append('> '+l)
-            else:
-                git_msg_out.append('>')
-        git_msg_out = "\n".join(git_msg_out)
-        module_data['git_msg'] = git_msg_out
+            git_msg_out = []
+            for l in module_data['git_msg'].split('\n'):
+                if l:
+                    git_msg_out.append('> '+l)
+                else:
+                    git_msg_out.append('>')
+            git_msg_out = "\n".join(git_msg_out)
+            module_data['git_rmsg'] = git_msg_out
 
-        f.write("""\
+            f.write("""\
 Updating data to {git_describe}
 
 Updated to {version} based on {git_hash} from {src}.
-{git_msg}
+{git_rmsg}
 
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
-""".format(**module_data))
-        f.flush()
-        f.name
-        subprocess.check_call(['git', 'commit', '-F', f.name])
+""".format(**module_data).encode('utf-8'))
+            f.flush()
+            f.name
+            subprocess.check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
     # Run the git subtree command
-    subprocess.check_call(
-        ['git', 'subtree', 'pull',
-         '-P', module_data['dir'],
-         module_data['src_local'], module_data['hash']],
-        cwd=repo_dir)
+    if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+        subtree_cmd = 'pull'
+    else:
+        subtree_cmd = 'add'
+    cmd = [
+        'git', 'subtree', subtree_cmd,
+        '-P', module_data['dir'],
+        module_data['src_local'], module_data['git_hash'],
+    ]
+    print(cmd)
+    subprocess.check_call(cmd, cwd=repo_dir)
 
 
 
@@ -354,6 +367,7 @@ def main(name, argv):
         pprint.pprint(list(m.items()))
         download(m)
         update(m)
+        break
         #github_repo(g, m)
 
     return 0
