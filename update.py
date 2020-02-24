@@ -44,7 +44,6 @@ def github_repo(g, module_data):
         try:
             repo = g.get_repo('litex-hub/'+module_data['repo'])
             repo.edit(**github_repo_config(module_data))
-            print(repo)
             break
         except github.UnknownObjectException as e:
             print(e)
@@ -120,8 +119,6 @@ def git_describe(ref='HEAD', env={}):
         o = o[1:]
 
     t, c, h = o.rsplit('-', 2)
-    print(repr(version.parse(o)))
-    print(t, c, h, t+'.'+c)
     return (d, version.parse(t+'-'+c))
 
 
@@ -165,7 +162,6 @@ def get_src(module_data):
             env=env)
         tags = get_tags(env)
 
-    print(tags)
     git_hash = get_hash(module_data['branch'], env)
     git_msg = subprocess.check_output(
         ['git', 'log', '-1', git_hash], env=env).decode('utf-8')
@@ -174,7 +170,6 @@ def get_src(module_data):
     module_data['src_local'] = os.path.abspath(src_dir)
     module_data['git_describe'] = desc
     module_data['git_hash'] = git_hash
-    print(desc, repr(vdesc))
     module_data['version_tuple'] = repr(tuple(vdesc.release))
     module_data['version'] = str(vdesc)
     module_data['git_msg'] = git_msg
@@ -299,7 +294,6 @@ def update(module_data):
     tocommit = subprocess.check_output(
         ['git', 'status', '--porcelain'], cwd=repo_dir).decode('utf-8')
     if tocommit:
-        print(tocommit)
         with tempfile.NamedTemporaryFile() as f:
 
             git_msg_out = []
@@ -377,6 +371,7 @@ def main(name, argv):
         print()
         print(module)
         pprint.pprint(list(m.items()))
+        github_repo(g, m)
         download(m)
         update(m)
 
