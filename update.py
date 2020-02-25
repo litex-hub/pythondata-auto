@@ -336,7 +336,14 @@ def push(module_data):
     print("Pushing:", module_data['repo'])
     print('-'*75)
     repo_dir = os.path.abspath(os.path.join('repos', module_data['repo']))
-    subprocess.check_call(['git', 'push', '--all'], cwd=repo_dir)
+    cmd = ['git', 'push', '--all']
+
+    user = os.environ.get('GH_USER', None)
+    token = os.environ.get('GH_TOKEN', None)
+    if user and token:
+        cmd.append('https://{u}:{p}@github.com/litex-hub/{m}.git'.format(
+            u=user, p=token, m=module_data['repo']))
+    subprocess.check_call(cmd, cwd=repo_dir)
     print('-'*75)
 
 
