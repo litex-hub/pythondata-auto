@@ -16,7 +16,7 @@ import github
 
 
 MAX_ATTEMPTS = 3
-GIT_MODE="git+ssh"
+GIT_MODE=os.environ.get('GIT_MODE', "git+ssh")
 
 def github_repo_config(module_data):
     config = dict(
