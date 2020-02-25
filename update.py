@@ -341,7 +341,7 @@ def push(module_data):
 
 
 def main(name, argv):
-    token = os.environ.get('GITHUB_API_TOKEN', None)
+    token = os.environ.get('GH_TOKEN', None)
     if token:
         g = github.Github(token)
     else:
