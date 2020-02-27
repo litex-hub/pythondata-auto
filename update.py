@@ -28,7 +28,8 @@ def github_repo_config(module_data):
     config['description'] = """
 Python module containing data files for using {n} with LiteX.
 """.format(n=module_data['human_name']).strip()
-    config['homepage'] = module_data['src']
+    if 'src' in module_data:
+        config['homepage'] = module_data['src']
     return config
 
 
@@ -297,20 +298,23 @@ def update(module_data):
         with tempfile.NamedTemporaryFile() as f:
 
             git_msg_out = []
-            for l in module_data['git_msg'].split('\n'):
-                if l:
-                    git_msg_out.append('> '+l)
-                else:
-                    git_msg_out.append('>')
-            git_msg_out = "\n".join(git_msg_out)
-            module_data['git_rmsg'] = git_msg_out
+            if 'git_msg' in module_data:
+                for l in module_data['git_msg'].split('\n'):
+                    if l:
+                        git_msg_out.append('> '+l)
+                    else:
+                        git_msg_out.append('>')
+                git_msg_out = "\n".join(git_msg_out)
+                module_data['git_rmsg'] = git_msg_out
 
-            f.write("""\
+                f.write("""\
 Updating data to {git_describe}
 
 Updated to {version} based on {git_hash} from {src}.
 {git_rmsg}
+""")
 
+            f.write("""\
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
             f.flush()
@@ -318,17 +322,18 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
             subprocess.check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
     # Run the git subtree command
-    if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
-        subtree_cmd = 'pull'
-    else:
-        subtree_cmd = 'add'
-    cmd = [
-        'git', 'subtree', subtree_cmd,
-        '-P', module_data['dir'],
-        module_data['src_local'], module_data['git_hash'],
-    ]
-    print(cmd)
-    subprocess.check_call(cmd, cwd=repo_dir)
+    if 'src' in module_data:
+        if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+            subtree_cmd = 'pull'
+        else:
+            subtree_cmd = 'add'
+        cmd = [
+            'git', 'subtree', subtree_cmd,
+            '-P', module_data['dir'],
+            module_data['src_local'], module_data['git_hash'],
+        ]
+        print(cmd)
+        subprocess.check_call(cmd, cwd=repo_dir)
 
 
 def push(module_data):
@@ -374,7 +379,15 @@ def main(name, argv):
             repo=repo_name)
         m['py'] = 'litex.data.{type}.{name}'.format(type=m['type'], name=module)
         m['dir'] = os.path.join('litex', 'data', m['type'], module, m['contents'])
-        get_src(m)
+        if 'src' in m:
+            get_src(m)
+        else:
+            assert 'git_describe' in m, m
+            assert 'git_hash' in m, m
+            vdesc = parse_tags(m['git_describe'])
+            # assert 'version' in m, m
+            m['version_tuple'] = repr(tuple(vdesc.release))
+            m['version'] = str(vdesc)
         print()
         print(module)
         pprint.pprint(list(m.items()))
