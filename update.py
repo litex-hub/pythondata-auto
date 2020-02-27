@@ -187,8 +187,11 @@ def get_src(module_data):
 
 def render(module_data, in_file, out_file):
     template = jinja2.Template(open(in_file).read())
+    s = template.render(**module_data)
+    if s and not s.endswith('\n'):
+        s += '\n'
     with open(out_file, 'w') as of:
-        of.write(template.render(**module_data))
+        of.write(s)
 
 
 def os_path_split_all(x):
