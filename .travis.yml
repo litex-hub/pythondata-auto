@@ -10,4 +10,4 @@ before_script:
   - sudo git config --system --replace-all user.email "$GIT_AUTHOR_EMAIL"
   - sudo git config --system --replace-all user.name "$GIT_AUTHOR_NAME"
 script:
-  - ./update.py
+  - ./update.py --push
