@@ -405,7 +405,7 @@ def main(name, argv):
         download(m)
         update(m)
 
-    if True:
+    if '--push' in argv:
         for module in config.sections():
             m = config[module]
             github_repo(g, m)
