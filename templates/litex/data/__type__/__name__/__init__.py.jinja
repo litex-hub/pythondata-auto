@@ -1,7 +1,12 @@
 import os.path
 __dir__ = os.path.split(os.path.abspath(os.path.realpath(__file__)))[0]
 data_location = os.path.join(__dir__, "{{ contents }}")
+{% if src %}
 src = "{{ src }}"
+{% endif %}
+{% if gen_src %}
+src = "{{ gen_src }}"
+{% endif %}
 git_hash = "{{ git_hash }}"
 git_describe = "{{ git_describe }}"
 version_str = "{{ version }}"

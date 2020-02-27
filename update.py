@@ -30,6 +30,8 @@ Python module containing data files for using {n} with LiteX.
 """.format(n=module_data['human_name']).strip()
     if 'src' in module_data:
         config['homepage'] = module_data['src']
+    if 'gen_src' in module_data:
+        config['homepage'] = module_data['gen_src']
     return config
 
 
@@ -68,12 +70,16 @@ def parse_tags(d):
     ... v0.0
     ... v0.0.0
     ... v0.0.0-rc1
+    ... v1.0.1-265-g5f0c7a7
+    ... v0.0-7004-g1cf70ea2
     ... ''')
     >>> for v in r:
     ...   print(v)
     (<Version('0.0.0rc1')>, 'v0.0.0-rc1')
     (<Version('0.0')>, 'v0.0')
     (<Version('0.0.0')>, 'v0.0.0')
+    (<Version('0.0.post7004')>, 'v0.0-7004-g1cf70ea2')
+    (<Version('1.0.1.post265')>, 'v1.0.1-265-g5f0c7a7')
 
     """
     tags = []
@@ -81,6 +87,9 @@ def parse_tags(d):
         nt = t.strip()
         if nt.startswith('v'):
             nt = t[1:]
+        dashg = nt.find('-g')
+        if dashg != -1:
+            nt = nt[:dashg]
         try:
             v = version.parse(nt)
         except version.InvalidVersion:
@@ -312,7 +321,7 @@ Updating data to {git_describe}
 
 Updated to {version} based on {git_hash} from {src}.
 {git_rmsg}
-""")
+""".format(**module_data).encode('utf-8'))
 
             f.write("""\
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
@@ -384,8 +393,9 @@ def main(name, argv):
         else:
             assert 'git_describe' in m, m
             assert 'git_hash' in m, m
-            vdesc = parse_tags(m['git_describe'])
-            # assert 'version' in m, m
+            versions = parse_tags(m['git_describe'])
+            assert len(versions) == 1, "Got multiple versions from " + m['git_describe']
+            vdesc, t = versions[0]
             m['version_tuple'] = repr(tuple(vdesc.release))
             m['version'] = str(vdesc)
         print()

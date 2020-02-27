@@ -16,9 +16,15 @@ with open(os.path.join({{ py }}.location, my_data_file)) as f:
     print(f.read())
 ```
 
+{% if src %}
 The data files come from {{ src }}
 and are imported using `git subtrees` to the directory
 [{{ dir }}]({{ dir }}].
+{% endif %}
+{% if gen_src %}
+The data files are generated from {{ gen_src }} and place in the directory
+[{{ dir }}]({{ dir }}].
+{% endif %}
 
 ## Installing
 
