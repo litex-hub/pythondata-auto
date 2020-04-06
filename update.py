@@ -46,11 +46,14 @@ def github_repo(g, module_data):
         attempts += 1
         try:
             repo = g.get_repo('litex-hub/'+module_data['repo'])
-            repo.edit(**github_repo_config(module_data))
-            break
+            if g.token:
+                repo.edit(**github_repo_config(module_data))
+            return True
         except github.UnknownObjectException as e:
             print(e)
-            github_repo_create(g, module_data)
+            if g.token:
+                github_repo_create(g, module_data)
+            return False
 
 
 def download(module_data):
@@ -368,8 +371,10 @@ def main(name, argv):
     token = os.environ.get('GH_TOKEN', None)
     if token:
         g = github.Github(token)
+        g.token = True
     else:
         g = github.Github()
+        g.token = False
 
     tool_version, _ = git_describe()
 
@@ -404,11 +409,14 @@ def main(name, argv):
         print()
         print(module)
         pprint.pprint(list(m.items()))
-        github_repo(g, m)
+        if not github_repo(g, m):
+            print("No github repo:", repo_name)
+            continue
         download(m)
         update(m)
 
     if '--push' in argv:
+        assert g.token
         for module in config.sections():
             m = config[module]
             github_repo(g, m)
