@@ -14,6 +14,7 @@ venv-clean:
 
 venv:
 	virtualenv --python=python3 venv
+	${ACTIVATE} pip install twine
 
 .PHONY: venv
 
