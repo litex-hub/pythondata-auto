@@ -134,7 +134,7 @@ def git_describe(ref='HEAD', env={}):
 
 def get_src(module_data):
     src_dir = os.path.join("srcs", module_data['repo'])
-    env = {'GIT_DIR': src_dir}
+    env = {'GIT_DIR': src_dir, 'HOME': os.path.expanduser('~')}
     if os.path.exists(src_dir):
         subprocess.check_call(
             ['git', 'fetch', '--all'],
