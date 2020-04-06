@@ -3,7 +3,10 @@ ACTIVATE=[[ -e venv/bin/activate ]] && source venv/bin/activate;
 SHELL := /bin/bash
 
 clean:
-	@true
+	rm -rf repos
+	rm -rf srcs
+	git checkout repos/.keepme
+	git checkout srcs/.keepme
 
 .PHONY: clean
 
