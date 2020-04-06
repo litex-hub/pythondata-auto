@@ -2,12 +2,35 @@ import os.path
 __dir__ = os.path.split(os.path.abspath(os.path.realpath(__file__)))[0]
 data_location = os.path.join(__dir__, "{{ contents }}")
 {% if src %}src = "{{ src }}"{% endif %}{% if gen_src %}src = "{{ gen_src }}"{% endif %}
-git_hash = "{{ git_hash }}"
-git_describe = "{{ git_describe }}"
+
+# Module version
 version_str = "{{ version }}"
 version_tuple = {{ version_tuple }}
 try:
     from packaging.version import Version as V
     pversion = V("{{ version }}")
+except ImportError:
+    pass
+
+# Data version info
+data_version_str = "{{ data_version }}"
+data_version_tuple = {{ data_version_tuple }}
+try:
+    from packaging.version import Version as V
+    pdata_version = V("{{ data_version }}")
+except ImportError:
+    pass
+data_git_hash = "{{ data_git_hash }}"
+data_git_describe = "{{ data_git_describe }}"
+data_git_msg = """\
+{{ git_msg }}
+"""
+
+# Tool version info
+tool_version_str = "{{ tool_version }}"
+tool_version_tuple = {{ tool_version_tuple }}
+try:
+    from packaging.version import Version as V
+    ptool_version = V("{{ tool_version }}")
 except ImportError:
     pass

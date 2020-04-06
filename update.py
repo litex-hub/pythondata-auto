@@ -181,10 +181,10 @@ def get_src(module_data):
 
     desc, vdesc = git_describe(module_data['branch'], env)
     module_data['src_local'] = os.path.abspath(src_dir)
-    module_data['git_describe'] = desc
-    module_data['git_hash'] = git_hash
-    module_data['version_tuple'] = repr(tuple(vdesc.release))
-    module_data['version'] = str(vdesc)
+    module_data['data_git_describe'] = desc
+    module_data['data_git_hash'] = git_hash
+    module_data['data_version_tuple'] = repr(version_tuple(vdesc))
+    module_data['data_version'] = str(vdesc)
     module_data['git_msg'] = git_msg
 
 
@@ -323,13 +323,14 @@ def update(module_data):
                 module_data['git_rmsg'] = git_msg_out
 
                 f.write("""\
-Updating data to {git_describe}
+Updating module to {version}
 
-Updated to {version} based on {git_hash} from {src}.
+Updated data to {data_git_describe} based on {data_git_hash} from {src}.
 {git_rmsg}
 """.format(**module_data).encode('utf-8'))
 
             f.write("""\
+
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
             f.flush()
@@ -345,7 +346,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
         cmd = [
             'git', 'subtree', subtree_cmd,
             '-P', module_data['dir'],
-            module_data['src_local'], module_data['git_hash'],
+            module_data['src_local'], module_data['data_git_hash'],
         ]
         print(cmd)
         subprocess.check_call(cmd, cwd=repo_dir)
@@ -367,6 +368,56 @@ def push(module_data):
     print('-'*75)
 
 
+def version_tuple(vdesc):
+    """
+    >>> r = parse_tags('''\\
+    ... v0.0
+    ... v0.0.0
+    ... v0.0.0-rc1
+    ... v1.0.1-265-g5f0c7a7
+    ... v0.0-7004-g1cf70ea2
+    ... ''')
+    >>> for v, a in r:
+    ...   print(version_tuple(v), a)
+    (0, 0, 0, None) v0.0.0-rc1
+    (0, 0, None) v0.0
+    (0, 0, 0, None) v0.0.0
+    (0, 0, 7004) v0.0-7004-g1cf70ea2
+    (1, 0, 1, 265) v1.0.1-265-g5f0c7a7
+    """
+    assert isinstance(vdesc, version.Version), (vdesc, type(vdesc))
+    return tuple(list(vdesc.release)+[vdesc.post,])
+
+
+def version_join(vdesc_a, vdesc_b):
+    """
+    >>> a = version.Version(  "1.2")
+    >>> b = version.Version("3.4.5")
+    >>> version_join(a, b)
+    <Version('3.5.post7')>
+
+    """
+    vta = list(version_tuple(vdesc_a)[::-1])
+    vtb = list(version_tuple(vdesc_b)[::-1])
+
+    while len(vta) < len(vtb):
+        vta.append(0)
+    while len(vtb) < len(vta):
+        vtb.append(0)
+    assert len(vta) == len(vtb), (vta, vtb)
+
+    vo = []
+    for a, b in zip(vta, vtb):
+        if a is None and b is None:
+            continue
+        if a is None:
+            a = 0
+        if b is None:
+            b = 0
+        vo.append(str(a+b))
+    return version.Version(".".join(vo[1:][::-1])+".post"+vo[0])
+
+
 def main(name, argv):
     token = os.environ.get('GH_TOKEN', None)
     if token:
@@ -376,7 +427,9 @@ def main(name, argv):
         g = github.Github()
         g.token = False
 
-    tool_version, _ = git_describe()
+    tool_version, tool_version_vdesc = git_describe()
+    tool_version_tuple = version_tuple(tool_version_vdesc)
+    tool_version = str(tool_version_vdesc)
 
     config = configparser.ConfigParser()
     config.read('modules.ini')
@@ -387,6 +440,7 @@ def main(name, argv):
             t=m['type'],
             mod=module)
         m['tool_version'] = tool_version
+        m['tool_version_tuple'] = repr(tool_version_tuple)
         m['name'] = module
         m['repo'] = repo_name
         m['repo_url'] = "{mode}://github.com/litex-hub/{repo}.git".format(
@@ -401,13 +455,25 @@ def main(name, argv):
         else:
             assert 'git_describe' in m, m
             assert 'git_hash' in m, m
-            versions = parse_tags(m['git_describe'])
-            assert len(versions) == 1, "Got multiple versions from " + m['git_describe']
+            m['data_git_describe'] = m['git_describe']
+            del m['git_describe']
+            m['data_git_hash'] = m['git_hash']
+            del m['git_hash']
+
+            versions = parse_tags(m['data_git_describe'])
+            assert len(versions) == 1, "Got multiple versions from " + m['data_git_describe']
             vdesc, t = versions[0]
-            m['version_tuple'] = repr(tuple(vdesc.release))
-            m['version'] = str(vdesc)
+            m['data_version_tuple'] = repr(tuple(vdesc.release))
+            m['data_version'] = str(vdesc)
+
+        module_version = version_join(tool_version_vdesc, version.Version(m['data_version']))
+        m['version'] = str(module_version)
+        m['version_tuple'] = repr(version_tuple(module_version))
+
         print()
-        print(module)
+        print(module, m['version'], m['version_tuple'])
+        print('Tools:', tool_version, tool_version_tuple)
+        print(' Data:', m['data_version'], m['data_version_tuple'])
         pprint.pprint(list(m.items()))
         if not github_repo(g, m):
             print("No github repo:", repo_name)

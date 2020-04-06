@@ -3,9 +3,15 @@ import os
 
 from litex.data.{{ type }} import {{ name }}
 
-print("Found {{ name }} @ version", {{ name }}.version_str, "("+{{ name }}.git_hash+")")
+print("Found {{ name }} @ version", {{ name }}.version_str, "(with data", {{ name }}.data_version_str, ")")
+print()
 print("Data is in", {{ name }}.data_location)
 assert os.path.exists({{ name }}.data_location)
+print("Data is version", {{ name }}.data_version_str, {{ name }}.data_git_hash)
+print("-"*75)
+print({{ name }}.data_git_msg)
+print("-"*75)
+print()
 print("It contains:")
 for root, dirs, files in os.walk({{ name }}.data_location):
     dirs.sort()
