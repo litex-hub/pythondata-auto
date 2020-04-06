@@ -4,12 +4,12 @@ git:
 
 language: python
 python:
-  - "3.4"
   - "3.5"
   - "3.6"
   - "3.7"
   - "3.8"
   - "nightly"  # nightly build
+  - "pypy3"
 
 install:
   - python setup.py install
