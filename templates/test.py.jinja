@@ -6,5 +6,9 @@ from litex.data.{{ type }} import {{ name }}
 print("Found {{ name }} @ version", {{ name }}.version_str, "("+{{ name }}.git_hash+")")
 print("Data is in", {{ name }}.data_location)
 assert os.path.exists({{ name }}.data_location)
-print("It contains:\n -", end=" ")
-print("\n - ".join(os.listdir({{ name }}.data_location)))
+print("It contains:")
+for root, dirs, files in os.walk({{ name }}.data_location):
+    dirs.sort()
+    for f in sorted(files):
+        path = os.path.relpath(os.path.join(root, f), {{ name }}.data_location)
+        print(" -", path)
