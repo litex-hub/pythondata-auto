@@ -26,8 +26,8 @@ def github_repo_config(module_data):
         has_projects=False,
     )
     config['description'] = """
-Python module containing data files for using {n} with LiteX.
-""".format(n=module_data['human_name']).strip()
+Python module containing {contents} files for {name} {type} (for use with LiteX).
+""".format(**module_data).strip()
     if 'src' in module_data:
         config['homepage'] = module_data['src']
     if 'gen_src' in module_data:
@@ -137,7 +137,8 @@ def git_describe(ref='HEAD', env={}):
 
 def get_src(module_data):
     src_dir = os.path.join("srcs", module_data['repo'])
-    env = {'GIT_DIR': src_dir, 'HOME': os.path.expanduser('~')}
+    env = dict(**os.environ)
+    env['GIT_DIR'] = src_dir
     if os.path.exists(src_dir):
         subprocess.check_call(
             ['git', 'fetch', '--all'],
@@ -323,7 +324,7 @@ def update(module_data):
                 module_data['git_rmsg'] = git_msg_out
 
                 f.write("""\
-Updating module to {version}
+Updating {repo} to {version}
 
 Updated data to {data_git_describe} based on {data_git_hash} from {src}.
 {git_rmsg}
@@ -436,7 +437,7 @@ def main(name, argv):
     for module in config.sections():
         m = config[module]
 
-        repo_name = 'litex-data-{t}-{mod}'.format(
+        repo_name = 'pythondata-{t}-{mod}'.format(
             t=m['type'],
             mod=module)
         m['tool_version'] = tool_version
@@ -448,8 +449,8 @@ def main(name, argv):
             repo=repo_name)
         m['repo_https'] = "https://github.com/litex-hub/{repo}.git".format(
             repo=repo_name)
-        m['py'] = 'litex.data.{type}.{name}'.format(type=m['type'], name=module)
-        m['dir'] = os.path.join('litex', 'data', m['type'], module, m['contents'])
+        m['py'] = 'pythondata_{type}_{name}'.format(type=m['type'], name=module)
+        m['dir'] = os.path.join(m['py'], m['contents'])
         if 'src' in m:
             get_src(m)
         else:

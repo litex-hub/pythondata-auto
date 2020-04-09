@@ -1,6 +1,9 @@
 # {{ repo }}
 
-Non-Python data files required to use the {{ name }} with
+Non-Python {{ content }} files needed for the {{ type }} {{ name }} packaged
+into a Python module so they can be used with Python libraries and tools.
+
+This Useful for usage with tools like
 [LiteX](https://github.com/enjoy-digital/litex.git).
 
 The data files can be found under the Python module `{{ py }}`. The
@@ -18,11 +21,11 @@ with open(os.path.join({{ py }}.data_location, my_data_file)) as f:
 
 Example of getting the data file using `litex.data.find` API;
 ```python
-from litex.data.find import find_data
+from {{ py }} import data_file
 
 my_data_file = "abc.txt"
 
-with open(os.path.join(find_data("{{ type }}", "{{ name }}"), my_data_file)) as f:
+with open(data_file(my_data_file)) as f:
     print(f.read())
 ```
 
@@ -36,7 +39,7 @@ The data files are generated from {{ gen_src }} and place in the directory
 [{{ dir }}]({{ dir }}).
 {% endif %}
 
-## Installing
+## Installing from git repository
 
 ## Manually
 
@@ -48,7 +51,7 @@ cd {{ repo }}
 sudo python setup.py install
 ```
 
-## Using [pip](https://pip.pypa.io/)
+## Using [pip](https://pip.pypa.io/) with git repository
 
 You can use [pip](https://pip.pypa.io/) to install the data package directly
 from github using;
@@ -82,3 +85,12 @@ To use a specific revision of the repository, use the following;
 ```
 -e {{ repo_https }}@<hash>
 ```
+
+## Installing from [PyPi](https://pypi.org/project/{{ repo }}/)
+
+## Using [pip](https://pip.pypa.io/)
+
+```
+pip install --user pythondata-{{ type }}-{{ name }}
+```
+

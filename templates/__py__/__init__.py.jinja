@@ -34,3 +34,12 @@ try:
     ptool_version = V("{{ tool_version }}")
 except ImportError:
     pass
+
+
+def data_file(f):
+    """Get absolute path for file inside {{py}}."""
+    fn = os.path.join(data_location, f)
+    fn = os.path.abspath(fn)
+    if not os.path.exists(fn):
+        raise IOError("File {f} doesn't exist in {{py}}".format(f))
+    return fn
