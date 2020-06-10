@@ -3,7 +3,7 @@ ACTIVATE=[[ -e venv/bin/activate ]] && source venv/bin/activate;
 SHELL := /bin/bash
 
 clean:
-	rm -rf build dist litex_data_*
+	rm -rf build dist pythondata_*.egg-info
 
 .PHONY: clean
 
