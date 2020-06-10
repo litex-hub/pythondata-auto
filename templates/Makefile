@@ -32,7 +32,7 @@ upload-test: build
 .PHONY: upload-test
 
 upload: build
-	${ACTIVATE} twine upload
+	${ACTIVATE} twine upload --verbose dist/*
 
 .PHONY: upload
 
