@@ -24,4 +24,7 @@ venv: requirements.txt
 update:
 	${ACTIVATE} python update.py
 
+push:
+	${ACTIVATE} python update.py --push
+
 .PHONY: update
