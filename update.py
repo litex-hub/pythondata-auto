@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 
 from collections import OrderedDict
 from packaging import version
@@ -267,6 +268,21 @@ def u(n, dst, src):
     print("{:>10s} {:60s} from {}".format(n, dst, src))
 
 
+_license_data = {}
+def get_license(module_data):
+    try:
+        spdx = module_data['license_spdx']
+    except KeyError as e:
+        print(module_data)
+        raise
+    if spdx not in _license_data:
+        license_url = "https://raw.githubusercontent.com/spdx/license-list-data/master/text/{}.txt".format(spdx)
+        f = urllib.request.urlopen(license_url)
+        assert f.reason == 'OK', f.reason
+        _license_data[spdx] = f.read().decode('utf-8')
+    return _license_data[spdx]
+
+
 def update(module_data):
     print()
     print("Updating:", module_data['repo'])
@@ -305,6 +321,14 @@ def update(module_data):
                 u("Copying", repo_f, path_f)
                 shutil.copy(path_f, repo_f)
             git_add_file(module_data, repo_f)
+
+        license_file = os.path.join(repo_dir, 'LICENSE')
+        if not os.path.exists(license_file):
+            u("Creating", repo_path(module_data, 'LICENSE', template_dir), module_data['license_spdx'])
+            with open(license_file, 'w') as f:
+                f.write(get_license(module_data))
+        git_add_file(module_data, license_file)
+
     print('-'*75)
 
     # Commit the changes
