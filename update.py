@@ -54,9 +54,9 @@ def github_repo(g, module_data):
             return True
         except github.UnknownObjectException as e:
             print(e)
-            if g.token:
-                github_repo_create(g, module_data)
-            return False
+            #if g.token:
+            #    github_repo_create(g, module_data)
+            return True
 
 
 def download(module_data):
