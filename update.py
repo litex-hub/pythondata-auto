@@ -46,8 +46,10 @@ def github_repo(g, module_data):
     while attempts < MAX_ATTEMPTS:
         attempts += 1
         try:
-            repo = g.get_repo('litex-hub/'+module_data['repo'])
+            slug = 'litex-hub/'+module_data['repo']
+            repo = g.get_repo(slug)
             if g.token:
+                print("Updating repo ", slug)
                 repo.edit(**github_repo_config(module_data))
             return True
         except github.UnknownObjectException as e:
