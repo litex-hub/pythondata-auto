@@ -19,6 +19,17 @@ import github
 MAX_ATTEMPTS = 3
 GIT_MODE=os.environ.get('GIT_MODE', "git+ssh")
 
+
+def subprocess_check_call(*args, **kw):
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        return subprocess.check_call(*args, **kw)
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+
 def github_repo_config(module_data):
     config = dict(
         has_issues=False,
@@ -62,12 +73,12 @@ def github_repo(g, module_data):
 def download(module_data):
     out_path = os.path.join('repos',module_data['repo'])
     if not os.path.exists(out_path):
-        subprocess.check_call(
+        subprocess_check_call(
             ["git", "clone", module_data['repo_url'], out_path])
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
-        subprocess.check_call(["git", "pull"], cwd=out_path)
+        subprocess_check_call(["git", "pull"], cwd=out_path)
 
 
 def parse_tags(d):
@@ -143,13 +154,13 @@ def get_src(module_data):
     env = dict(**os.environ)
     env['GIT_DIR'] = src_dir
     if os.path.exists(src_dir):
-        subprocess.check_call(
+        subprocess_check_call(
             ['git', 'fetch', '--all'],
             env=env)
     else:
-        subprocess.check_call(
+        subprocess_check_call(
             ['git', 'clone', '--bare', '--mirror', module_data['src'], src_dir])
-    subprocess.check_call(
+    subprocess_check_call(
         ['git', 'fetch', '--tags'],
         env=env)
 
@@ -174,7 +185,7 @@ def get_src(module_data):
             '-m','Dummy version on first commit so git-describe works',
             'v0.0', first_hash,
         ]
-        subprocess.check_call(
+        subprocess_check_call(
             cmd,
             env=env)
         tags = get_tags(env)
@@ -263,7 +274,7 @@ def git_add_file(module_data, f):
     cmd = ['git', 'add', os.path.relpath(f, repo_dir)]
     dotgit = os.path.join(repo_dir, '.git')
     assert os.path.exists(dotgit), dotgit
-    subprocess.check_call(cmd, cwd=repo_dir)
+    subprocess_check_call(cmd, cwd=repo_dir)
 
 
 def u(n, dst, src):
@@ -362,7 +373,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
             f.flush()
             f.name
-            subprocess.check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
+            subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
     # Run the git subtree command
     if 'src' in module_data:
@@ -376,7 +387,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
             module_data['src_local'], module_data['data_git_hash'],
         ]
         print(cmd)
-        subprocess.check_call(cmd, cwd=repo_dir)
+        subprocess_check_call(cmd, cwd=repo_dir)
 
 
 def push(module_data):
@@ -391,7 +402,7 @@ def push(module_data):
     if user and token:
         cmd.append('https://{u}:{p}@github.com/litex-hub/{m}.git'.format(
             u=user, p=token, m=module_data['repo']))
-    subprocess.check_call(cmd, cwd=repo_dir)
+    subprocess_check_call(cmd, cwd=repo_dir)
     print('-'*75)
 
 
@@ -443,6 +454,25 @@ def version_join(vdesc_a, vdesc_b):
             b = 0
         vo.append(str(a+b))
     return version.Version(".".join(vo[1:][::-1])+".post"+vo[0])
+
+
+def start_module_output(module, module_data):
+    sys.stdout.flush()
+    sys.stderr.flush()
+    print()
+    print('::group::'+module+' Config')
+    pprint.pprint(module_data)
+    print('::endgroup::')
+    print('::group::'+module)
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+
+def end_module_output(module):
+    print('::endgroup::')
+    print()
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 
 def main(name, argv):
@@ -497,23 +527,26 @@ def main(name, argv):
         m['version'] = str(module_version)
         m['version_tuple'] = repr(version_tuple(module_version))
 
-        print()
+        start_module_output(module, list(m.items()))
         print(module, m['version'], m['version_tuple'])
         print('Tools:', tool_version, tool_version_tuple)
         print(' Data:', m['data_version'], m['data_version_tuple'])
-        pprint.pprint(list(m.items()))
         if not github_repo(g, m):
             print("No github repo:", repo_name)
             continue
         download(m)
         update(m)
 
+        end_module_output(module)
+
     if '--push' in argv:
         assert g.token
         for module in config.sections():
             m = config[module]
             github_repo(g, m)
+            start_module_output(module, m)
             push(m)
+            end_module_output(module)
 
     return 0
 
