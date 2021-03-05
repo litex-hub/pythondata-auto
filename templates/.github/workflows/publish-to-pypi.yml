@@ -52,6 +52,7 @@ jobs:
     - name: Build distribution 📦
       run: |
         python setup.py sdist bdist_wheel
+        rm dist/*.egg
 
     - name: Check distribution 📦
       run: |
