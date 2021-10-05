@@ -377,17 +377,26 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 
     # Run the git subtree command
     if 'src' in module_data:
-        if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
-            subtree_cmd = 'pull'
+        if module_data.getboolean('submodule'):
+            if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+                cmd = 'git submodule update --remote --merge'
+            else:
+                submodule_cmd = 'git submodule add {} {}'.format(
+                        module_data['src'], module_data['dir'])
+            print(cmd)
+            subprocess_check_call(cmd.split(), cwd=repo_dir)
         else:
-            subtree_cmd = 'add'
-        cmd = [
-            'git', 'subtree', subtree_cmd,
-            '-P', module_data['dir'],
-            module_data['src_local'], module_data['data_git_hash'],
-        ]
-        print(cmd)
-        subprocess_check_call(cmd, cwd=repo_dir)
+            if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+                subtree_cmd = 'pull'
+            else:
+                subtree_cmd = 'add'
+            cmd = [
+                'git', 'subtree', subtree_cmd,
+                '-P', module_data['dir'],
+                module_data['src_local'], module_data['data_git_hash'],
+            ]
+            print(cmd)
+            subprocess_check_call(cmd, cwd=repo_dir)
 
 
 def push(module_data):
