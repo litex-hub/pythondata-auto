@@ -390,6 +390,17 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
                         module_data['src'], module_data['dir'])
             print(cmd)
             subprocess_check_call(cmd.split(), cwd=repo_dir)
+            # submodule bump does not commit by itself
+            subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
+            with tempfile.NamedTemporaryFile() as f:
+                f.write("""\
+Bump {dir} submodule to {data_git_hash}
+
+Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
+""".format(**module_data).encode('utf-8'))
+                f.flush()
+                subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
+
         else:
             if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
                 subtree_cmd = 'pull'
