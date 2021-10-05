@@ -74,12 +74,14 @@ def download(module_data):
     out_path = os.path.join('repos',module_data['repo'])
     if not os.path.exists(out_path):
 
-        clone_opts = ''
         if module_data.getboolean('submodule'):
-            clone_opts = '--recursive'
+            clone_cmd = "git clone --recursive {} {}"
+        else:
+            clone_cmd = "git clone {} {}"
 
-        subprocess_check_call(
-            ["git", "clone", clone_opts, module_data['repo_url'], out_path])
+        cmd = clone_cmd.format(module_data['repo_url'], out_path)
+
+        subprocess_check_call(cmd.split())
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
