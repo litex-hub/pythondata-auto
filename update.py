@@ -73,8 +73,13 @@ def github_repo(g, module_data):
 def download(module_data):
     out_path = os.path.join('repos',module_data['repo'])
     if not os.path.exists(out_path):
+
+        clone_opts = ''
+        if module_data.getboolean('submodule'):
+            clone_opts = '--recursive'
+
         subprocess_check_call(
-            ["git", "clone", module_data['repo_url'], out_path])
+            ["git", "clone", clone_opts, module_data['repo_url'], out_path])
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
@@ -377,17 +382,38 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 
     # Run the git subtree command
     if 'src' in module_data:
-        if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
-            subtree_cmd = 'pull'
+        if module_data.getboolean('submodule'):
+            if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+                cmd = 'git submodule update --remote --merge'
+            else:
+                submodule_cmd = 'git submodule add {} {}'.format(
+                        module_data['src'], module_data['dir'])
+            print(cmd)
+            subprocess_check_call(cmd.split(), cwd=repo_dir)
+            # submodule bump does not commit by itself
+            subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
+            with tempfile.NamedTemporaryFile() as f:
+                f.write("""\
+Bump {dir} submodule to {data_git_hash}
+
+Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
+""".format(**module_data).encode('utf-8'))
+                f.flush()
+                f.name
+                subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
+
         else:
-            subtree_cmd = 'add'
-        cmd = [
-            'git', 'subtree', subtree_cmd,
-            '-P', module_data['dir'],
-            module_data['src_local'], module_data['data_git_hash'],
-        ]
-        print(cmd)
-        subprocess_check_call(cmd, cwd=repo_dir)
+            if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+                subtree_cmd = 'pull'
+            else:
+                subtree_cmd = 'add'
+            cmd = [
+                'git', 'subtree', subtree_cmd,
+                '-P', module_data['dir'],
+                module_data['src_local'], module_data['data_git_hash'],
+            ]
+            print(cmd)
+            subprocess_check_call(cmd, cwd=repo_dir)
 
 
 def push(module_data):
