@@ -73,8 +73,13 @@ def github_repo(g, module_data):
 def download(module_data):
     out_path = os.path.join('repos',module_data['repo'])
     if not os.path.exists(out_path):
+
+        clone_opts = ''
+        if module_data.getboolean('submodule'):
+            clone_opts = '--recursive'
+
         subprocess_check_call(
-            ["git", "clone", module_data['repo_url'], out_path])
+            ["git", "clone", clone_opts, module_data['repo_url'], out_path])
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
