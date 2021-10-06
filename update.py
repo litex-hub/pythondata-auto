@@ -392,9 +392,12 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
             print(cmd)
             subprocess_check_call(cmd.split(), cwd=repo_dir)
             # submodule bump does not commit by itself
-            subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
-            with tempfile.NamedTemporaryFile() as f:
-                f.write("""\
+            tocommit = subprocess.check_output(
+                ['git', 'status', '--porcelain'], cwd=repo_dir).decode('utf-8')
+            if tocommit:
+                subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
+                with tempfile.NamedTemporaryFile() as f:
+                    f.write("""\
 Bump {dir} submodule to {data_git_hash}
 
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
