@@ -379,7 +379,6 @@ Updated data to {data_git_describe} based on {data_git_hash} from {src}.
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
             f.flush()
-            f.name
             subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
     # Run the git subtree command
@@ -401,7 +400,6 @@ Bump {dir} submodule to {data_git_hash}
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
                 f.flush()
-                f.name
                 subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
         else:
