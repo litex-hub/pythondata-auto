@@ -379,7 +379,6 @@ Updated data to {data_git_describe} based on {data_git_hash} from {src}.
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
             f.flush()
-            f.name
             subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
     # Run the git subtree command
@@ -393,15 +392,17 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
             print(cmd)
             subprocess_check_call(cmd.split(), cwd=repo_dir)
             # submodule bump does not commit by itself
-            subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
-            with tempfile.NamedTemporaryFile() as f:
-                f.write("""\
+            tocommit = subprocess.check_output(
+                ['git', 'status', '--porcelain'], cwd=repo_dir).decode('utf-8')
+            if tocommit:
+                subprocess_check_call(['git', 'add', '.'], cwd=repo_dir)
+                with tempfile.NamedTemporaryFile() as f:
+                    f.write("""\
 Bump {dir} submodule to {data_git_hash}
 
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
                 f.flush()
-                f.name
                 subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
         else:
