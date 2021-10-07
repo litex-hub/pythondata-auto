@@ -403,7 +403,7 @@ Bump {dir} submodule to {data_git_hash}
 Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 """.format(**module_data).encode('utf-8'))
                     f.flush()
-                subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
+                    subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
         else:
             if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
