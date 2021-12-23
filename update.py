@@ -88,7 +88,7 @@ def download(module_data):
         subprocess_check_call(["git", "pull"], cwd=out_path)
 
 
-def parse_tags(d):
+def parse_tags(d, ignored=False):
     """
     >>> r = parse_tags('''\\
     ... v0.0
@@ -121,6 +121,7 @@ def parse_tags(d):
 
     """
     tags = []
+    itags = []
     for t in d.splitlines():
         nt = t.strip()
         if nt.startswith('v'):
@@ -132,11 +133,15 @@ def parse_tags(d):
             v = version.parse(nt)
         except version.InvalidVersion:
             print("Invalid tag version:", t)
+            itags.append((t, None))
             continue
         if isinstance(v, version.LegacyVersion):
+            itags.append((t, v))
             continue
         tags.append((v, t))
     tags.sort()
+    if ignored:
+        return list(tags), itags
     return list(tags)
 
 
@@ -152,14 +157,18 @@ def get_tags(env):
         env=env).decode('utf-8')
 
     tags = OrderedDict()
-    for v, t in parse_tags(d):
+    pt, ignored = parse_tags(d, ignored=True)
+    for v, t in pt:
         tags[t] = (v, get_hash(t, env))
-    return tags
+    return tags, ignored
 
 
 def git_describe(ref='HEAD', env={}):
     d = subprocess.check_output(
-        ['git', 'describe', '--tags', ref, '--match', 'v*', '--exclude', '*-r*'],
+        ['git', 'describe', '--tags', ref,
+         '--match', 'v*',
+         '--match', '*.*',
+         '--exclude', '*-r*'],
         env=env).decode('utf-8').strip()
 
     o = d
@@ -185,7 +194,7 @@ def get_src(module_data):
         ['git', 'fetch', '--tags'],
         env=env)
 
-    tags = get_tags(env)
+    tags, ignored = get_tags(env)
     if 'v0.0' not in tags:
         # Add a default tag
         p = subprocess.Popen(
@@ -209,7 +218,14 @@ def get_src(module_data):
         subprocess_check_call(
             cmd,
             env=env)
-        tags = get_tags(env)
+        tags, ignored = get_tags(env)
+
+    print("Found tags:")
+    pprint.pprint(list(tags.items()))
+    print("Ignored tags:")
+    pprint.pprint(ignored)
+    for t, v in ignored:
+        subprocess.check_call(['git', 'tag', '--delete', t], env=env)
 
     git_hash = get_hash(module_data['branch'], env)
     git_msg = subprocess.check_output(
@@ -499,14 +515,24 @@ def version_join(vdesc_a, vdesc_b):
     return version.Version(".".join(vo[1:][::-1])+".post"+vo[0])
 
 
-def start_module_output(module, module_data):
+def start_module_output(module):
+    sys.stdout.flush()
+    sys.stderr.flush()
+    print()
+    print('::group::'+module+' Updating')
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+
+def module_output(module, module_data):
+    print('::endgroup::')
     sys.stdout.flush()
     sys.stderr.flush()
     print()
     print('::group::'+module+' Config')
     pprint.pprint(module_data)
     print('::endgroup::')
-    print('::group::'+module)
+    print('::group::'+module+' Details')
     sys.stdout.flush()
     sys.stderr.flush()
 
@@ -540,6 +566,9 @@ def main(name, argv):
     for module in config.sections():
         if argv and module not in argv:
             continue
+
+        start_module_output(module)
+
         m = config[module]
 
         repo_name = 'pythondata-{t}-{mod}'.format(
@@ -576,7 +605,7 @@ def main(name, argv):
         m['version'] = str(module_version)
         m['version_tuple'] = repr(version_tuple(module_version))
 
-        start_module_output(module, list(m.items()))
+        module_output(module, list(m.items()))
         print(module, m['version'], m['version_tuple'])
         print('Tools:', tool_version, tool_version_tuple)
         print(' Data:', m['data_version'], m['data_version_tuple'])
@@ -594,8 +623,9 @@ def main(name, argv):
             if argv and module not in argv:
                 continue
             m = config[module]
+            start_module_output(module)
             github_repo(g, m)
-            start_module_output(module, m)
+            module_output(module, m)
             push(m)
             end_module_output(module)
 
