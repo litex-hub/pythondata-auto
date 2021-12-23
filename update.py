@@ -104,6 +104,20 @@ def parse_tags(d):
     (<Version('0.0.0')>, 'v0.0.0')
     (<Version('0.0.post7004')>, 'v0.0-7004-g1cf70ea2')
     (<Version('1.0.1.post265')>, 'v1.0.1-265-g5f0c7a7')
+    >>> r = parse_tags('''\\
+    ... 0.0
+    ... 0.0.0
+    ... 0.0.0-rc1
+    ... 1.0.1-265-g5f0c7a7
+    ... 0.0-7004-g1cf70ea2
+    ... ''')
+    >>> for v in r:
+    ...   print(v)
+    (<Version('0.0.0rc1')>, '0.0.0-rc1')
+    (<Version('0.0')>, '0.0')
+    (<Version('0.0.0')>, '0.0.0')
+    (<Version('0.0.post7004')>, '0.0-7004-g1cf70ea2')
+    (<Version('1.0.1.post265')>, '1.0.1-265-g5f0c7a7')
 
     """
     tags = []
@@ -505,6 +519,10 @@ def end_module_output(module):
 
 
 def main(name, argv):
+    push = "--push" in argv
+    if push:
+        argv.remove("--push")
+
     token = os.environ.get('GH_TOKEN', None)
     if token:
         g = github.Github(token)
@@ -520,6 +538,8 @@ def main(name, argv):
     config = configparser.ConfigParser()
     config.read('modules.ini')
     for module in config.sections():
+        if argv and module not in argv:
+            continue
         m = config[module]
 
         repo_name = 'pythondata-{t}-{mod}'.format(
@@ -568,9 +588,11 @@ def main(name, argv):
 
         end_module_output(module)
 
-    if '--push' in argv:
+    if push:
         assert g.token
         for module in config.sections():
+            if argv and module not in argv:
+                continue
             m = config[module]
             github_repo(g, m)
             start_module_output(module, m)

@@ -24,6 +24,9 @@ venv: requirements.txt
 update:
 	${ACTIVATE} python update.py
 
+echo:
+	@echo "${ACTIVATE} python update.py"
+
 push:
 	${ACTIVATE} python update.py --push
 
