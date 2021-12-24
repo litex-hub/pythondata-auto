@@ -545,8 +545,8 @@ def end_module_output(module):
 
 
 def main(name, argv):
-    push = "--push" in argv
-    if push:
+    should_push = "--push" in argv
+    if should_push:
         argv.remove("--push")
 
     token = os.environ.get('GH_TOKEN', None)
@@ -617,7 +617,7 @@ def main(name, argv):
 
         end_module_output(module)
 
-    if push:
+    if should_push:
         assert g.token
         for module in config.sections():
             if argv and module not in argv:
