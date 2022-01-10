@@ -165,7 +165,9 @@ def get_tags(env):
 
 def git_describe(ref='HEAD', env={}):
     d = subprocess.check_output(
-        ['git', 'describe', '--tags', ref,
+        ['git', 'describe',
+         '--long',
+         '--tags', ref,
          '--match', 'v*',
          '--match', '*.*',
          '--exclude', '*-r*'],
