@@ -40,9 +40,11 @@ The data files are generated from {{ gen_src }} and place in the directory
 [{{ dir }}]({{ dir }}).
 {% endif %}
 
-## Installing from git repository
+# Installing
 
-## Manually
+## Directly from git repository
+
+### Manually
 
 You can install the package manually, however this is **not** recommended.
 
@@ -52,7 +54,7 @@ cd {{ repo }}
 sudo python setup.py install
 ```
 
-## Using [pip](https://pip.pypa.io/) with git repository
+### Using [pip](https://pip.pypa.io/) with git repository
 
 You can use [pip](https://pip.pypa.io/) to install the data package directly
 from github using;
@@ -87,11 +89,18 @@ To use a specific revision of the repository, use the following;
 -e {{ repo_https }}@<hash>
 ```
 
-## Installing from [PyPi](https://pypi.org/project/{{ repo }}/)
+## Via [PyPi](https://pypi.org/project/{{ repo }}/)
 
-## Using [pip](https://pip.pypa.io/)
+### Using [pip](https://pip.pypa.io/)
 
 ```
 pip install --user pythondata-{{ type }}-{{ name }}
+```
+
+### With `requirements.txt` file
+
+Add to your Python `requirements.txt` file using;
+```
+{{ repo }}
 ```
 
