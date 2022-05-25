@@ -415,8 +415,11 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 
     # Run the git subtree command
     if 'src' in module_data:
+        data_dir = os.path.join(repo_dir, module_data['dir'])
+
         if module_data.getboolean('submodule'):
-            if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
+
+            if os.path.exists(data_dir):
                 cmd = 'git submodule update --remote --merge'
             else:
                 submodule_cmd = 'git submodule add {} {}'.format(
@@ -449,6 +452,36 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
             ]
             print(cmd)
             subprocess_check_call(cmd, cwd=repo_dir)
+
+            gitmodules = os.path.join(data_dir, ".gitmodules")
+            if os.path.exists(gitmodules):
+                with open(gitmodules) as f:
+                    gm_data = f.read()
+
+                gm_data = gm_data.replace('[submodule "', '[submodule "'+module_data['dir']+os.path.sep)
+                gm_data = gm_data.replace('path = ', 'path = '+module_data['dir']+os.path.sep)
+
+                repo_gm = os.path.join(repo_dir, ".gitmodules")
+                try:
+                    with open(repo_gm) as f:
+                        repo_gm_data = f.read()
+                except FileNotFoundError:
+                    pass
+
+                if gm_data != repo_gm:
+                    print("Updating {} file!".format(repo_gm))
+                    with open(repo_gm, "w") as f:
+                        f.write(gm_data)
+
+                    subprocess_check_call(['git', 'add', '.gitmodules'], cwd=repo_dir)
+                    with tempfile.NamedTemporaryFile() as f:
+                        f.write("""\
+Updating .gitmodules file.
+
+Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
+""".format(**module_data).encode('utf-8'))
+                        f.flush()
+                        subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
 
 def push(module_data):
