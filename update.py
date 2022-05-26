@@ -468,7 +468,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
                 except FileNotFoundError:
                     pass
 
-                if gm_data != repo_gm:
+                if gm_data != repo_gm_data:
                     print("Updating {} file!".format(repo_gm))
                     with open(repo_gm, "w") as f:
                         f.write(gm_data)
