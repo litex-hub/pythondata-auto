@@ -598,7 +598,7 @@ def main(name, argv):
     tool_version_tuple = version_tuple(tool_version_vdesc)
     tool_version = str(tool_version_vdesc)
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     config.read('modules.ini')
     for module in config.sections():
         if argv and module not in argv:
