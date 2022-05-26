@@ -85,7 +85,8 @@ def download(module_data):
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
-        subprocess_check_call(["git", "pull"], cwd=out_path)
+        subprocess_check_call(["git", "fetch"], cwd=out_path)
+        subprocess_check_call(["git", "reset", "--hard", "origin/master"], cwd=out_path)
 
 
 def parse_tags(d, ignored=False):
