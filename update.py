@@ -463,6 +463,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
 
                 repo_gm = os.path.join(repo_dir, ".gitmodules")
                 try:
+                    repo_gm_data = ""
                     with open(repo_gm) as f:
                         repo_gm_data = f.read()
                 except FileNotFoundError:
