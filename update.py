@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import configparser
 import os
 import pprint
@@ -11,18 +12,20 @@ import urllib.request
 
 from collections import OrderedDict
 from packaging import version
+from packaging_legacy.version import parse, LegacyVersion
 
 import jinja2
 import github
 
 
 MAX_ATTEMPTS = 3
-GIT_MODE=os.environ.get('GIT_MODE', "git+ssh")
 
 
 def subprocess_check_call(*args, **kw):
     sys.stdout.flush()
     sys.stderr.flush()
+    sub_env = os.environ.copy()
+    sub_env['GIT_TERMINAL_PROMPT'] = '0'
     try:
         return subprocess.check_call(*args, **kw)
     finally:
@@ -85,6 +88,7 @@ def download(module_data):
     else:
         dotgit = os.path.join(out_path, '.git')
         assert os.path.exists(dotgit), dotgit
+        subprocess_check_call(["git", "remote", "set-url", "origin", module_data['repo_url']], cwd=out_path)
         subprocess_check_call(["git", "fetch"], cwd=out_path)
         subprocess_check_call(["git", "reset", "--hard", "origin/master"], cwd=out_path)
 
@@ -131,12 +135,12 @@ def parse_tags(d, ignored=False):
         if dashg != -1:
             nt = nt[:dashg]
         try:
-            v = version.parse(nt)
+            v = parse(nt)
         except version.InvalidVersion:
             print("Invalid tag version:", t)
             itags.append((t, None))
             continue
-        if isinstance(v, version.LegacyVersion):
+        if isinstance(v, LegacyVersion):
             itags.append((t, v))
             continue
         tags.append((v, t))
@@ -146,7 +150,7 @@ def parse_tags(d, ignored=False):
     return list(tags)
 
 
-def get_hash(ref, env={}):
+def get_hash(ref='HEAD', env={}):
     return subprocess.check_output(
         ['git', 'rev-parse', ref],
         env=env).decode('utf-8').strip()
@@ -163,22 +167,41 @@ def get_tags(env):
         tags[t] = (v, get_hash(t, env))
     return tags, ignored
 
-
 def git_describe(ref='HEAD', env={}):
-    d = subprocess.check_output(
-        ['git', 'describe',
-         '--long',
-         '--tags', ref,
-         '--match', 'v*',
-         '--match', '*.*',
-         '--exclude', '*-r*'],
-        env=env).decode('utf-8').strip()
+    """Get the version from git describe.
+    Returns tuple of (description, version)
+    Falls back to 0.0-<commits>-g<hash> if no tags exist
+    """
+    try:
+        d = subprocess.check_output(
+            ['git', 'describe',
+             '--long',
+             '--tags', ref,
+             '--match', 'v*',
+             '--match', '*.*',
+             '--exclude', '*-r*'],
+            env=env).decode('utf-8').strip()
+    except subprocess.CalledProcessError:
+        # If no tags exist, create a version based on number of commits
+        commits = subprocess.check_output(
+            ['git', 'rev-list', '--count', ref],
+            env=env).decode('utf-8').strip()
+        hash_val = subprocess.check_output(
+            ['git', 'rev-parse', '--short', ref],
+            env=env).decode('utf-8').strip()
+        d = f"v0.0-{commits}-g{hash_val}"
 
+    # Process the version string
     o = d
     if o.startswith('v'):
         o = o[1:]
 
     t, c, h = o.rsplit('-', 2)
+    
+    # Convert version to a PEP 440 compatible format
+    # Replace hyphens in the version part with dots
+    t = t.replace('-', '.')
+    
     return (d, version.parse(t+'-'+c))
 
 
@@ -230,11 +253,19 @@ def get_src(module_data):
     for t, v in ignored:
         subprocess.check_call(['git', 'tag', '--delete', t], env=env)
 
-    git_hash = get_hash(module_data['branch'], env)
+    ref = module_data['branch']
+    if module_data.getboolean('tags_only'):
+        (t, v) = next(reversed(tags.values()))
+        ref = str(v)
+
+    print("Using ref:", ref)
+
+    git_hash = get_hash(ref, env)
     git_msg = subprocess.check_output(
         ['git', 'log', '-1', git_hash], env=env).decode('utf-8')
 
-    desc, vdesc = git_describe(module_data['branch'], env)
+    desc, vdesc = git_describe(ref, env)
+    print("Git describe:" + str(desc) + str(vdesc))
     module_data['src_local'] = os.path.abspath(src_dir)
     module_data['data_git_describe'] = desc
     module_data['data_git_hash'] = git_hash
@@ -442,6 +473,11 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
                     subprocess_check_call(['git', 'commit', '-F', f.name], cwd=repo_dir)
 
         else:
+            merge_msg = """\
+Bump {dir} subtree to {data_git_hash}
+
+Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
+""".format(**module_data).encode('utf-8')
             if os.path.exists(os.path.join(repo_dir, module_data['dir'])):
                 subtree_cmd = 'pull'
             else:
@@ -450,6 +486,7 @@ Updated using {tool_version} from https://github.com/litex-hub/litex-data-auto
                 'git', 'subtree', subtree_cmd,
                 '-P', module_data['dir'],
                 module_data['src_local'], module_data['data_git_hash'],
+                '-m', merge_msg,
             ]
             print(cmd)
             subprocess_check_call(cmd, cwd=repo_dir)
@@ -582,9 +619,11 @@ def end_module_output(module):
 
 
 def main(name, argv):
-    should_push = "--push" in argv
-    if should_push:
-        argv.remove("--push")
+    parser = argparse.ArgumentParser(description='Update pythondata modules')
+    parser.add_argument('--push', action='store_true', help='Push changes to remote repositories')
+    parser.add_argument('--config', default='modules.ini', help='Configuration file')
+    parser.add_argument('modules', nargs='*', help='Specific modules to update (default: all modules)')
+    args = parser.parse_args(argv)
 
     token = os.environ.get('GH_TOKEN', None)
     if token:
@@ -594,18 +633,26 @@ def main(name, argv):
         g = github.Github()
         g.token = False
 
+    git_mode = os.environ.get('GIT_MODE')
+    if not git_mode:
+        if args.push:
+            git_mode = 'git+ssh'
+        else:
+            git_mode = 'https'
+
     tool_version, tool_version_vdesc = git_describe()
     tool_version_tuple = version_tuple(tool_version_vdesc)
     tool_version = str(tool_version_vdesc)
 
+    operation_results = []
     config = configparser.ConfigParser(interpolation=None)
-    config.read('modules.ini')
+    config.read(args.config)
     for module in config.sections():
-        if argv and module not in argv:
+        if args.modules and module not in args.modules:
             continue
 
         start_module_output(module)
-
+        result = {'module': module, 'download': None, 'update': None, 'push': None}
         m = config[module]
 
         repo_name = 'pythondata-{t}-{mod}'.format(
@@ -616,7 +663,7 @@ def main(name, argv):
         m['name'] = module
         m['repo'] = repo_name
         m['repo_url'] = "{mode}://github.com/litex-hub/{repo}.git".format(
-            mode=GIT_MODE,
+            mode=git_mode,
             repo=repo_name)
         m['repo_https'] = "https://github.com/litex-hub/{repo}.git".format(
             repo=repo_name)
@@ -649,22 +696,59 @@ def main(name, argv):
         if not github_repo(g, m):
             print("No github repo:", repo_name)
             continue
-        download(m)
-        update(m)
+        try:
+            download(m)
+            result['download'] = (True, None)
+        except Exception as e:
+            result['download'] = (False, str(e))
+            
+        try:
+            update(m)
+            result['update'] = (True, None)
+        except Exception as e:
+            result['update'] = (False, str(e))
+
+        operation_results.append(result)
 
         end_module_output(module)
 
-    if should_push:
+    if args.push:
         assert g.token
-        for module in config.sections():
-            if argv and module not in argv:
+        for result in operation_results:
+            if not result['update'] or result['update'][0] is not True:
+                print("Skipping push for", result['module'])
                 continue
+            module = result['module']
             m = config[module]
             start_module_output(module)
             github_repo(g, m)
             module_output(module, m)
-            push(m)
+            try:
+                push(m)
+                result['push'] = (True, None)
+            except Exception as e:
+                result['push'] = (False, str(e))
             end_module_output(module)
+        
+
+    print("\nOperation Summary:")
+    print("-" * 80)
+    for result in operation_results:
+        print(f"\nModule: {result['module']}")
+        for op in ['download', 'update', 'push']:
+            if result[op] is not None:
+                success, error = result[op]
+                status = "✓ Success" if success else "✗ Failed"
+                print(f"  {op:8s}: {status}")
+                if not success:
+                    print(f"    Error: {error}")
+    
+    print("\nStatistics:")
+    ops = ['download', 'update', 'push']
+    for op in ops:
+        total = sum(1 for r in operation_results if r[op] is not None)
+        success = sum(1 for r in operation_results if r[op] is not None and r[op][0])
+        print(f"{op:8s}: {success}/{total} successful")
 
     return 0
 
