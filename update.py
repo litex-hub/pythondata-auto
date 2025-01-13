@@ -381,6 +381,7 @@ def update(module_data):
         u("Updating", repo_root, root)
         if not os.path.exists(repo_root):
             os.makedirs(repo_root)
+            subprocess_check_call(['git', 'init', '-b', 'master'], cwd=repo_root)
 
         for d in dirs:
             path_d = os.path.join(path, d)
